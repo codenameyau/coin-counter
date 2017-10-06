@@ -18,9 +18,6 @@ class CoinCounter:
             'quarter': 0.25
         }
 
-        # Change calibration image file here:
-        self.COIN_CALIBRATION_IMAGE = "images/calibration.jpg"
-
         # Change what type of coin each label number represents:
         self.coin_labels = {
             'quarter': 1,
@@ -32,8 +29,10 @@ class CoinCounter:
         self.num_coins = 0
         self.max_ratio = {}
         self.min_ratio = {}
+        self.money_area = {}
 
-        # Perform calibration on coins.
+        # Change calibration image file here:
+        self.COIN_CALIBRATION_IMAGE = "images/calibration.jpg"
         self.calibrate_coins()
 
     def load_color_grayscale_and_binary(self, image_file):
@@ -65,7 +64,6 @@ class CoinCounter:
         Calibrates ratios for radius size for coins. This function
         should be modified for different calibrations.
         """
-        # Load color, grayscale, binary images
         print "Performing coin calibration:"
         self.load_color_grayscale_and_binary(self.COIN_CALIBRATION_IMAGE)
         self.patch_holes_and_label()
@@ -81,23 +79,13 @@ class CoinCounter:
             area = float(sp.count_nonzero(coin))
             self.money_area[coin_type] = area
 
-        # Compute ratio with smallest coin
-        self.min_ratio['dime'] = 1.0
-        self.min_ratio['quarter'] = self.money_area['quarter'] / \
-            self.money_area['dime']
-        self.min_ratio['penny'] = self.money_area['penny'] / \
-            self.money_area['dime']
-        self.min_ratio['nickel'] = self.money_area['nickel'] / \
-            self.money_area['dime']
+        # Compute ratio of each coin with smallest and largest coins as baseline.
+        smallest_coin = 'dime'
+        largest_coin = 'quartet'
 
-        # Compute ratio with largest coin
-        self.max_ratio['quarter'] = 1.0
-        self.max_ratio['dime'] = self.money_area['dime'] / \
-            self.money_area['quarter']
-        self.max_ratio['penny'] = self.money_area['penny'] / \
-            self.money_area['quarter']
-        self.max_ratio['nickel'] = self.money_area['nickel'] / \
-            self.money_area['quarter']
+        for coin in self.coins:
+            self.min_ratio[coin] = self.money_area[coin] / self.money_area[smallest_coin]
+            self.max_ratio[coin] = self.money_area[coin] / self.money_area[largest_coin]
         self.print_coin_calibration()
 
     def compute_coin_color(self):
@@ -112,21 +100,19 @@ class CoinCounter:
         distance_red[black_mask] = 0
         self.gray_img = distance_red > thresh_red
 
-    def count_money(self, image_file, num_bills):
+    def count_coins(self, image_file):
         """
         Sets total money to zero and starts to count money.
         Coins are counted with penny color highting and ratio with
-        smallest and largest coins. Bills are counted with edge/line
-        detection and area ratio with other bills.
+        smallest and largest coins.
         """
         # Initialize values
         self.money_matches = {}
         self.money_area = []
         self.error_total = 0
         self.money_total = 0
-        noise_thresh = 100
+        noise_threshold = 100
         label_num = 0
-        count = 0
 
         # Load image and binarize
         self.load_color_grayscale_and_binary(image_file)
@@ -137,7 +123,7 @@ class CoinCounter:
         for coins in self.labels:
             coin = (self.labels == label_num)
             area = float(sp.count_nonzero(coin))
-            if area > noise_thresh:
+            if area > noise_threshold:
                 self.money_area.append(area)
             label_num += 1
 
@@ -146,36 +132,23 @@ class CoinCounter:
         self.money_area = sorted(self.money_area, reverse=True)
 
         # Separate bills with coins by indices
-        bill_size = max(self.money_area)
         min_size, max_size = None, None
-        if num_bills < len(self.money_area):
-            min_size = min(self.money_area[num_bills:])
-            max_size = max(self.money_area[num_bills:])
 
         # Count money based on area
         for item in self.money_area:
-            if count < num_bills:
-                matching = self._match_bill(item / bill_size)
-            else:
-                matching = self._match_coin(item / min_size, item / max_size)
+            matching = self._match_coin(item / min_size, item / max_size)
             # Increment count of coin or bill
             if matching in self.money_matches:
                 self.money_matches[matching] += 1
             else:
                 self.money_matches[matching] = 1
-            count += 1
-
-        print "\nMoney counted:"
-        print self.money_matches
 
     def print_coin_calibration(self):
         """
         Outputs area of objects to screen
         """
-        print "\nRatio with smallest coin:"
-        print self.min_ratio
-        print "\nRatio with largest coin:"
-        print self.max_ratio
+        print "Ratio with smallest coin:", self.min_ratio
+        print "Ratio with largest coin:", self.max_ratio
 
     def show_image(self, image):
         """
@@ -203,9 +176,9 @@ class CoinCounter:
 
     def _match_coin(self, ratio_to_min, ratio_to_max):
         """
-        Tries to determine which coin based on ratio to
-        largest and smallest coin during calibration and
-        distance to color red.
+        Tries to determine the coin for the component label based on the ratio
+        to the largest and smallest coin during calibration and the coin's
+        distance to the color red.
         """
         # Find out closest to smallest and largest coin
         min_match = self._find_in_dictionary(ratio_to_min, self.min_ratio)

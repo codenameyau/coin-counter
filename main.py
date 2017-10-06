@@ -1,5 +1,5 @@
 import argparse
-# from counter import coins
+from counter import coins
 
 
 def main():
@@ -17,12 +17,12 @@ def main():
     args = parser.parse_args()
 
     # Create and calibrate money counter
-    # coin_counter = coins.MoneyCounter()
+    coin_counter = coins.CoinCounter()
 
     # # # Test 1 only coins
-    # coin_counter.count_money(MONEY_FILE)
-    # print "Total: $%.2f" % coin_counter.money_total
-    # print "Error: $%.2f" % coin_counter.error_total
+    coin_counter.count_coins(args)
+    print "Total: $%.2f" % coin_counter.money_total
+    print "Error: $%.2f" % coin_counter.error_total
 
 if __name__ == '__main__':
     main()
